@@ -35,26 +35,38 @@ def compute_batch_hessian(
     embeddings: torch.Tensor,
 ) -> torch.Tensor:
     """Compute the summed Hessian for the linear head."""
+    if logits.ndim == 1:
+        logits = logits.unsqueeze(0)
+    if embeddings.ndim == 1:
+        embeddings = embeddings.unsqueeze(0)
+
     probs = torch.softmax(logits, dim=-1)
     fisher_logits = torch.diag_embed(probs) - probs.unsqueeze(2) * probs.unsqueeze(1)
-    augmented_embeddings = torch.cat(
-        (
-            embeddings,
-            torch.ones(
-                embeddings.size(0),
-                1,
-                device=embeddings.device,
-                dtype=embeddings.dtype,
-            ),
-        ),
-        dim=1,
+    feature_outer = embeddings.unsqueeze(2) * embeddings.unsqueeze(1)
+
+    num_classes = logits.size(1)
+    embedding_dim = embeddings.size(1)
+
+    # Keep the Hessian layout consistent with compute_head_gradients():
+    # [weight.flatten(), bias].
+    weight_weight = torch.einsum("bij,bkl->ikjl", fisher_logits, feature_outer)
+    weight_weight = weight_weight.reshape(
+        num_classes * embedding_dim,
+        num_classes * embedding_dim,
     )
-    feature_outer = (
-        augmented_embeddings.unsqueeze(2) * augmented_embeddings.unsqueeze(1)
+    weight_bias = torch.einsum("bij,bk->ikj", fisher_logits, embeddings).reshape(
+        num_classes * embedding_dim,
+        num_classes,
     )
-    hessian = torch.einsum("bij,bkl->ikjl", fisher_logits, feature_outer)
-    dim = augmented_embeddings.size(1) * logits.size(1)
-    return hessian.reshape(dim, dim)
+    bias_weight = torch.einsum("bij,bk->ijk", fisher_logits, embeddings).reshape(
+        num_classes,
+        num_classes * embedding_dim,
+    )
+    bias_bias = fisher_logits.sum(dim=0)
+
+    top = torch.cat((weight_weight, weight_bias), dim=1)
+    bottom = torch.cat((bias_weight, bias_bias), dim=1)
+    return torch.cat((top, bottom), dim=0)
 
 
 @dataclass(slots=True)
