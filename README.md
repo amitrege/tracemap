@@ -5,11 +5,12 @@ training images that nudged it in one direction or another.
 
 You give it a query image. It gives you the most helpful and harmful training
 examples, a heatmap on the query, a heatmap on each retrieved example, and a
-few patch-level matches so the comparison is easier to read.
+few patch-level matches so the comparison is easier to visualize.
 
-The scope is deliberately tight. The backbone stays frozen, the classifier head
-is trainable, and the attribution math lives at the head. That keeps the code
+The backbone stays frozen, the classifier head is trainable, and the attribution math lives at the head. That keeps the code
 short enough to understand without turning it into a giant framework.
+
+This is a research prototype + made to be easy to learn from - feel free to extend or contact me if you have ideas! 
 
 ## Install
 
